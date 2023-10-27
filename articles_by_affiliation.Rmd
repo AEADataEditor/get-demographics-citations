@@ -1,0 +1,264 @@
+---
+title: "Obtaining lists of articles for contributors from a specific Org"
+author: "Lars Vilhuber"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+## Sources
+
+- CrossRef
+
+```{r config_libs,include=FALSE,message=FALSE}
+source(file.path(rprojroot::find_root(rprojroot::has_file("pathconfig.R")),"pathconfig.R"),echo=TRUE)
+source(file.path(basepath,"global-libraries.R"),echo=TRUE)
+source(file.path(basepath,"config.R"),echo=TRUE)
+```
+
+## Instructions
+This file, when executed, will
+
+- download a list of articles for top journals from CrossRef
+- Filter those articles by affiliation of the authors
+- Save the output as CSV
+
+The program will check for prior files, and will NOT download new data if those files are present. Thus, to get a fresh run, 
+
+- delete ` `r full.file.Rds` ` if you want to re-start the whole process
+- delete ` `r file.path(interwrk,paste0("new.Rds"))` ` to re-download files from CrossRef
+- revert ` `r issns.file` ` (which stores the last query date, and is updated at the end of this process)
+
+## Data locations
+
+Permanent data is in
+
+> `r dataloc`
+
+and should be committed to the repository.
+
+Temporary data is in
+
+> `r interwrk`
+
+and can (should) be deleted after completion.
+
+## Current list of articles
+
+We first obtain the current list of articles. This is not failsafe - it assumes there *is* such a list.
+
+
+```{r read_list}
+
+if (file.exists(full.file.Rds)) {
+	print(paste0("File ",full.file.Rds," exists."))
+  full.file <- readRDS(full.file.Rds)
+  uniques <- full.file %>% select(doi) %>% distinct() 
+} else	{
+  print(paste0("File ",full.file.Rds," is absent."))
+}
+# End of else statement
+
+```
+
+
+```{r issn}
+# Each journal has a ISSN
+if (!file.exists(issns.file)) {
+issns <- data.frame(matrix(ncol=2,nrow=10))
+names(issns) <- c("journal","issn")
+tmp.date <- c("2000-01-01")
+issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790")
+issns[2,] <- c("American Economic Journal: Economic Policy","1945-774X")
+issns[3,] <- c("American Economic Journal: Macroeconomics", "1945-7715")
+issns[4,] <- c("American Economic Journal: Microeconomics", "1945-7685")
+issns[5,] <- c("The American Economic Review","1944-7981")
+issns[6,] <- c("The American Economic Review","0002-8282")  # print ISSN is needed!
+issns[7,] <- c("The Quarterly Journal of Economics","0033-5533") # use the print ISSN (OUP). Online ISSN: 1531-4650
+issns[8,] <- c("The Review of Economic Studies","0034-6527") # use the print ISSN (OUP). Online ISSN: 1467-937X
+issns[9,] <- c("Journal of Political Economy","0022-3808") # online: E-ISSN: 1537-534X
+issns[10,] <- c("The Economic Journal Oxford","0013-0133") # Online ISSN 1468-0297 
+
+
+issns$lastdate <- tmp.date
+saveRDS(issns, file= issns.file)
+}
+
+
+```
+
+Now read DOI for all later dates.
+
+```{r read_AEA}
+# Run this only once per session
+# The column "author" contains author-affiliations as well.
+if ( file.exists(issns.file) ) {
+  issns <- readRDS(file = issns.file)
+	crossref.df <- NA
+	for ( x in 1:nrow(issns) ) {
+		new <- cr_journals(issn=issns[x,"issn"], works=TRUE,
+				   filter=c(from_pub_date=issns[x,"lastdate"]),
+				   select=c("DOI","title","published-print","volume","issue","container-title","author"),
+				   .progress="text",
+				   cursor = "*")
+		if ( x == 1 ) {
+      		#crossref.df <- as.data.frame(new$data)
+		      crossref.df <- new %>% purrr::pluck("data")
+      		crossref.df$issn = issns[x,"issn"]
+    	} else {
+    	    #tmp.df <- as.data.frame(new$data)
+    	    tmp.df <- new %>% purrr::pluck("data")
+    	    tmp.df$issn = issns[x,"issn"]
+      		crossref.df <- bind_rows(crossref.df,tmp.df)
+      		rm(tmp.df)
+    	}
+	}
+	# extract the author information into columns
+	crossref.df %>% unnest(author) -> raw.df
+	
+	# Cleaning up. OUP breaks out multiple affiliations. We concatenate them back together again
+	raw.df %>% 
+	  unite(affiliations,starts_with("affiliation"),sep=";",remove=TRUE,na.rm=TRUE) %>%
+	  mutate(affiliations = str_remove(string = affiliations,pattern = fixed(" (email: )"))) -> new.df
+	saveRDS(new.df, file= new.file.Rds)
+	rm(new)
+}
+
+# clean read-back
+new.df <- readRDS(file= new.file.Rds)
+```
+
+We read **`r nrow(new.df %>% select(doi) %>% distinct())`** article records for **`r nrow(new.df %>% select(container.title) %>% distinct())`** journals, with **`r nrow(new.df)`** article-author observations:
+
+```{r stats1, echo=FALSE}
+knitr::kable(new.df %>% group_by(container.title) %>% summarise(records = n()))
+```
+
+
+```{r write_addtl, include=FALSE}
+# we remove those we already have
+#addtl.df <- anti_join(new.df,uniques,by=c("doi"))
+## commented line above because uniques is not defined. no full.list exists
+# flatten the list of authors 
+df <- as.data.frame(apply(new.df,2,as.character))
+write.csv(df, file = addtl.file,row.names = FALSE)
+
+```
+
+The new records can be found [here](`r addtl.file`). We now update the file we use to track the updates, ` `r issns.file` `. If you need to run the process anew, simply revert the file ` `r issns.file` ` and run this document again.
+
+```{r update, eval=FALSE}
+issns <- new.df %>% select(journal,lastdate) %>% 
+	right_join(issns,by=c("journal")) %>%
+	mutate( lastdate = coalesce(lastdate.x,lastdate.y)) %>%
+	select(-lastdate.x, -lastdate.y)
+saveRDS(issns, file= issns.file)
+```
+
+## Writing out final files
+
+We finalize by creating a combined file with all records, and a corresponding CSV file. These can be re-used.
+
+```{r output}
+# Append new.df and full.file
+
+
+if (file.exists(full.file.Rds)) {
+	print(paste0("File ",full.file.Rds," exists."))
+  full.file <- bind_rows(readRDS(full.file.Rds),new.df)
+} else	{
+  full.file <- new.df 
+}
+
+saveRDS(full.file,file=full.file.Rds)
+write.csv(full.file,file=full.file.csv,row.names = FALSE)
+
+```
+
+## Finding target institutions'  authors
+
+Now pull out the selected affiliation ("`r affiliation.target`"):
+
+```{r target}
+full.file <- readRDS(full.file.Rds)
+# Iterate over targets
+if ( exists("target.df") ) { rm(target.df) }
+for ( target in affiliation.target ) {
+  full.file %>% filter(str_detect(affiliations,target)) %>%
+    mutate(detected_target = target) -> tmp.df
+  if ( exists("target.df") ) {
+    target.df <- bind_rows(target.df,tmp.df)
+  } else {
+    target.df <- tmp.df
+  }
+  rm(tmp.df)
+}
+```
+
+As it turns out, the Journal of Political Economy does not encode its metadata with affiliations. We thus need to search for publications by specific authors. Note that this might yield papers that are from these authors when they were not yet, or no longer, at the relevant institutions.
+
+```{r construct_authors}
+
+# first file was manually obtained from IMF website
+# It was manully cleaned using 
+# sed 's+""+"+g'  imf_authors.csv | sed 's+""+"+g' > cleaned_imf_cvs.csv
+library(readr)
+target.authors <- read_csv("data/inputs/cleaned_imf_cvs.csv",
+                    col_names = FALSE)
+names(target.authors) <- c("last","first")
+target.authors$institution = "IMF"
+
+# An equivalent list from the World Bank would be useful.
+
+# Now merge against the full file and identify the subset of publications by these authors.
+
+jpe.imf <- left_join(full.file %>% filter(container.title=="Journal of Political Economy"),target.authors,c("family"="last","given"="first")) %>%
+  filter(!is.na(institution)) %>%
+  select(-institution) %>%
+  rename(institution = affiliations)
+
+# now append that to the target file
+target.df <- bind_rows(target.df,jpe.imf)
+```
+
+##  Save the target file
+
+```{r save_target}
+
+saveRDS(target.df,target.file.Rds)
+write.csv(target.df,target.file.csv,row.names = FALSE)
+
+# subset to unique articles
+
+target.df %>% select(container.title,published.print,doi,title,detected_target) %>%
+  distinct() %>%
+  mutate(url=paste0("https://doi.org/",doi)) -> target.articles
+write.csv(target.articles,target.articles.csv,row.names = FALSE)
+
+```
+
+We found `r nrow(target.articles)`:
+
+```{r group_articles,echo=FALSE}
+knitr::kable(target.articles %>% group_by(detected_target) %>% summarize(Count=n())) 
+```
+(Table may contain some double-counting if the same article has authors from multiple targeted institutions)
+
+Here are the articles we found:
+
+```{r show_articles,echo=FALSE}
+knitr::kable(target.articles)
+```
+
+## System info
+
+```{r sysinfo}
+Sys.info()
+```
