@@ -15,10 +15,16 @@ library(rcrossref)
 
 # Each journal has a ISSN
 if (!file.exists(issns.file)) {
-  issns <- data.frame(matrix(ncol=3,nrow=1))
+  issns <- data.frame(matrix(ncol=3,nrow=5))
   names(issns) <- c("journal","issn","lastdate")
   tmp.date <- c("2000-01")
-  issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790",tmp.date)
+issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790",tmp.date)
+issns[2,] <- c("American Economic Journal: Economic Policy","1945-774X",tmp.date)
+issns[3,] <- c("American Economic Journal: Macroeconomics", "1945-7715",tmp.date)
+issns[4,] <- c("American Economic Journal: Microeconomics", "1945-7685",tmp.date)
+issns[5,] <- c("The American Economic Review","1944-7981",tmp.date)
+issns[6,] <- c("The American Economic Review","0002-8282",tmp.date)  # print ISSN is needed!
+
   saveRDS(issns, file= issns.file)
 }
 
