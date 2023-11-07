@@ -1,0 +1,139 @@
+
+R version 4.3.2 (2023-10-31) -- "Eye Holes"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # Getting in-scope articles
+> # Code derived from another project
+> # NOTE: THIS REQUIRES R 4.2.0 and newer packages!
+> #
+> 
+> source(file.path(rprojroot::find_rstudio_root_file(),"pathconfig.R"),echo=FALSE)
+> source(file.path(basepath,"global-libraries.R"),echo=FALSE)
+Loading required package: devtools
+Loading required package: usethis
+Loading required package: rprojroot
+Loading required package: tictoc
+> source(file.path(programs,"libraries.R"), echo=FALSE)
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: rcrossref
+Loading required package: readr
+Loading required package: data.table
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:tictoc’:
+
+    shift
+
+Loading required package: readxl
+Loading required package: rjson
+Loading required package: ggplot2
+Loading required package: stringr
+Loading required package: skimr
+Loading required package: Rcpp
+Skipping install of 'openalexR' from a github remote, the SHA1 (056e55cb) has not changed since last install.
+  Use `force = TRUE` to force installation
+> source(file.path(programs,"config.R"), echo=FALSE)
+> 
+> library(rcrossref)
+> 
+> # filenames in config.R
+> 
+> 
+> # Each journal has a ISSN
+> if (!file.exists(issns.file)) {
++   issns <- data.frame(matrix(ncol=3,nrow=9))
++   names(issns) <- c("journal","issn","lastdate")
++   tmp.date <- c("2000-01")
++ issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790",tmp.date)
++ issns[2,] <- c("American Economic Journal: Economic Policy","1945-774X",tmp.date)
++ issns[3,] <- c("American Economic Journal: Macroeconomics", "1945-7715",tmp.date)
++ issns[4,] <- c("American Economic Journal: Microeconomics", "1945-7685",tmp.date)
++ issns[5,] <- c("The American Economic Review","1944-7981",tmp.date)
++ issns[6,] <- c("The American Economic Review","0002-8282",tmp.date)  # print ISSN is needed!
++ issns[7,] <- c("Journal of Economic Literature","2328-8175",tmp.date)
++ issns[8,] <- c("Journal of Economic Perspectives","1944-7965",tmp.date)
++ issns[9,] <- c("American Economic Review: Insights","2640-2068",tmp.date)
++ 
++   saveRDS(issns, file= issns.file)
++ }
+> 
+> issns <- readRDS(file = issns.file)
+> 
+> if (!file.exists(doi.file.Rds) ) {
++   new.df <- NA
++   for ( x in 1:nrow(issns) ) {
++     message(paste0("Processing ",issns[x,"journal"]," (",issns[x,"issn"],")"))
++     new <- cr_journals(issn=issns[x,"issn"], works=TRUE,
++                        filter=c(from_pub_date=issns[x,"lastdate"]),
++                        select=c("DOI","title","published-print","volume","issue","container-title","author"),
++                        .progress="text",
++                        cursor = "*")
++     if ( x == 1 ) {
++       new.df <- as.data.frame(new$data)
++       new.df$issn = issns[x,"issn"]
++     } else {
++       tmp.df <- as.data.frame(new$data)
++       if ( nrow(tmp.df) > 0 ) {
++         tmp.df$issn = issns[x,"issn"]
++         new.df <- bind_rows(new.df,tmp.df)
++       } else {
++         warning(paste0("Did not find records for ISSN=",issns[x,"issn"]))
++       }
++       rm(tmp.df)
++     }
++   }
++   # filters
++   new.df %>%
++     filter(title!="Front Matter") %>%
++     filter(!str_detect(title,"Volume")) %>%
++     filter(!str_detect(title,"Forthcoming")) %>%
++     # filter(title!="Editor's Note") %>%
++     # More robust
++     filter(str_sub(doi, start= -1)!="i")-> filtered.df
++   saveRDS(filtered.df, file=  doi.file.Rds)
++   rm(new)
++ }
+Processing American Economic Journal: Applied Economics (1945-7790)
+Processing American Economic Journal: Economic Policy (1945-774X)
+Processing American Economic Journal: Macroeconomics (1945-7715)
+Processing American Economic Journal: Microeconomics (1945-7685)
+Processing The American Economic Review (1944-7981)
+Processing The American Economic Review (0002-8282)
+
+Warning message:
+Did not find records for ISSN=1944-7981 
+Error in curl::curl_fetch_memory(x$url$url, handle = x$url$handle) : 
+  Operation was aborted by an application callback
+Calls: cr_journals ... <Anonymous> -> <Anonymous> -> crul_fetch -> <Anonymous>
+Execution halted

@@ -3,15 +3,13 @@
 
 
 #' Define the list of libraries
-libraries <- c("dplyr","devtools","rcrossref","readr","tidyr","data.table","xtable",
-               "rjson","ggplot2","Rcpp","stargazer","knitr","stringr","readxl",
-               "fastDummies","skimr","sandwich","pastecs")
+#libraries <- c("dplyr","devtools","rcrossref","readr","tidyr","data.table","xtable",
+#               "rjson","ggplot2","Rcpp","stargazer","knitr","stringr","readxl",
+#               "fastDummies","skimr","sandwich","pastecs")
 
+libraries <- c("dplyr","devtools","rcrossref","readr","data.table","readxl",
+                "rjson","ggplot2","stringr","skimr")
 
-
-#install_github("cboettig/knitcitations")
-#install.packages("knitcitations")
-#require(knitcitations)
 
 results <- sapply(as.list(libraries), pkgTest)
 cbind(libraries,results)

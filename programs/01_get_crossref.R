@@ -35,7 +35,8 @@ issns <- readRDS(file = issns.file)
 
 if (!file.exists(doi.file.Rds) ) {
   new.df <- NA
-  for ( x in 1 ) {
+  for ( x in 1:nrow(issns) ) {
+    message(paste0("Processing ",issns[x,"journal"]," (",issns[x,"issn"],")"))
     new <- cr_journals(issn=issns[x,"issn"], works=TRUE,
                        filter=c(from_pub_date=issns[x,"lastdate"]),
                        select=c("DOI","title","published-print","volume","issue","container-title","author"),
@@ -46,23 +47,34 @@ if (!file.exists(doi.file.Rds) ) {
       new.df$issn = issns[x,"issn"]
     } else {
       tmp.df <- as.data.frame(new$data)
-      tmp.df$issn = issns[x,"issn"]
-      new.df <- bind_rows(new.df,tmp.df)
+      if ( nrow(tmp.df) > 0 ) {
+        tmp.df$issn = issns[x,"issn"]
+        new.df <- bind_rows(new.df,tmp.df)
+      } else {
+        warning(paste0("Did not find records for ISSN=",issns[x,"issn"]))
+      }
       rm(tmp.df)
     }
   }
   # filters
-  new.df %>%
-    filter(title!="Front Matter") %>%
-    filter(!str_detect(title,"Volume")) %>%
-    filter(!str_detect(title,"Forthcoming")) %>%
-    # filter(title!="Editor's Note") %>%
-    # More robust
-    filter(str_sub(doi, start= -1)!="i")-> filtered.df
-  saveRDS(filtered.df, file=  doi.file.Rds)
+  saveRDS(new.df, file=  file.path(interwrk,"new.Rds"))
   rm(new)
 }
 
+
+# filters
+new.df <- file.path(interwrk,"new.Rds")
+nrow(new.df)
+new.df %>%
+  filter(is.null(author)) %>%
+  filter(title!="Front Matter") %>%
+  filter(!str_detect(title,"Volume")) %>%
+  filter(!str_detect(title,"Forthcoming")) %>%
+  # filter(title!="Editor's Note") %>%
+  # More robust
+  filter(str_sub(doi, start= -1)!="i")-> filtered.df
+nrow(filtered.df)
+saveRDS(filtered.df, file=  doi.file.Rds)
 
 # clean read-back
 aejdois <- readRDS(file= doi.file.Rds)
