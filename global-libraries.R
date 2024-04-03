@@ -43,6 +43,6 @@ pkgTest <- function(x)
 	return("OK")
 }
 
-global.libraries <- c("devtools","rprojroot","tictoc")
+global.libraries <- c("rprojroot","tictoc")
 
 results <- sapply(as.list(global.libraries), pkgTest)
