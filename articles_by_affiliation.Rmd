@@ -22,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r config_libs,include=FALSE,message=FALSE}
 source(file.path(rprojroot::find_root(rprojroot::has_file("pathconfig.R")),"pathconfig.R"),echo=TRUE)
 source(file.path(basepath,"global-libraries.R"),echo=TRUE)
+source(file.path(basepath,"libraries.R"),echo=TRUE)
 source(file.path(programs,"config.R"),echo=TRUE)
 ```
 
@@ -34,7 +35,7 @@ This file, when executed, will
 
 The program will check for prior files, and will NOT download new data if those files are present. Thus, to get a fresh run, 
 
-- delete ` `r full.file.Rds` ` if you want to re-start the whole process
+- delete ` `r doi.file.Rds` ` if you want to re-start the whole process
 - delete ` `r file.path(interwrk,paste0("new.Rds"))` ` to re-download files from CrossRef
 - revert ` `r issns.file` ` (which stores the last query date, and is updated at the end of this process)
 
@@ -59,12 +60,12 @@ We first obtain the current list of articles. This is not failsafe - it assumes 
 
 ```{r read_list}
 
-if (file.exists(full.file.Rds)) {
-	print(paste0("File ",full.file.Rds," exists."))
-  full.file <- readRDS(full.file.Rds)
-  uniques <- full.file %>% select(doi) %>% distinct() 
+if (file.exists(doi.file.Rds)) {
+	print(paste0("File ",doi.file.Rds," exists."))
+  doi.file <- readRDS(doi.file.Rds)
+  uniques <- doi.file %>% select(doi) %>% distinct() 
 } else	{
-  print(paste0("File ",full.file.Rds," is absent."))
+  print(paste0("File ",doi.file.Rds," is absent."))
 }
 # End of else statement
 
@@ -76,16 +77,16 @@ if (file.exists(full.file.Rds)) {
 if (!file.exists(issns.file)) {
 issns <- data.frame(matrix(ncol=2,nrow=10))
 names(issns) <- c("journal","issn")
-tmp.date <- c("2000-01-01")
+tmp.date <- c("2023-10-01")
 issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790")
 issns[2,] <- c("American Economic Journal: Economic Policy","1945-774X")
 issns[3,] <- c("American Economic Journal: Macroeconomics", "1945-7715")
 issns[4,] <- c("American Economic Journal: Microeconomics", "1945-7685")
 issns[5,] <- c("The American Economic Review","1944-7981")
 issns[6,] <- c("The American Economic Review","0002-8282")  # print ISSN is needed!
-issns[7,] <- c("Journal of Economic Literature","2328-8175",tmp.date)
-issns[8,] <- c("Journal of Economic Perspectives","1944-7965",tmp.date)
-issns[9,] <- c("American Economic Review: Insights","2640-2068",tmp.date)
+issns[7,] <- c("Journal of Economic Literature","2328-8175")
+issns[8,] <- c("Journal of Economic Perspectives","1944-7965")
+issns[9,] <- c("American Economic Review: Insights","2640-2068")
 #issns[7,] <- c("The Quarterly Journal of Economics","0033-5533") # use the print ISSN (OUP). Online ISSN: 1531-4650
 #issns[8,] <- c("The Review of Economic Studies","0034-6527") # use the print ISSN (OUP). Online ISSN: 1467-937X
 #issns[9,] <- c("Journal of Political Economy","0022-3808") # online: E-ISSN: 1537-534X
@@ -172,18 +173,18 @@ saveRDS(issns, file= issns.file)
 We finalize by creating a combined file with all records, and a corresponding CSV file. These can be re-used.
 
 ```{r output}
-# Append new.df and full.file
+# Append new.df and doi.file
 
 
-if (file.exists(full.file.Rds)) {
-	print(paste0("File ",full.file.Rds," exists."))
-  full.file <- bind_rows(readRDS(full.file.Rds),new.df)
+if (file.exists(doi.file.Rds)) {
+	print(paste0("File ",doi.file.Rds," exists."))
+  doi.file <- bind_rows(readRDS(doi.file.Rds),new.df)
 } else	{
-  full.file <- new.df 
+  doi.file <- new.df 
 }
 
-saveRDS(full.file,file=full.file.Rds)
-write.csv(full.file,file=full.file.csv,row.names = FALSE)
+saveRDS(doi.file,file=doi.file.Rds)
+write.csv(doi.file,file=doi.file.csv,row.names = FALSE)
 
 ```
 
@@ -192,11 +193,11 @@ write.csv(full.file,file=full.file.csv,row.names = FALSE)
 Now pull out the selected affiliation ("`r affiliation.target`"):
 
 ```{r target}
-full.file <- readRDS(full.file.Rds)
+doi.file <- readRDS(doi.file.Rds)
 # Iterate over targets
 if ( exists("target.df") ) { rm(target.df) }
 for ( target in affiliation.target ) {
-  full.file %>% filter(str_detect(affiliations,target)) %>%
+  doi.file %>% filter(str_detect(affiliations,target)) %>%
     mutate(detected_target = target) -> tmp.df
   if ( exists("target.df") ) {
     target.df <- bind_rows(target.df,tmp.df)
@@ -224,7 +225,7 @@ target.authors$institution = "IMF"
 
 # Now merge against the full file and identify the subset of publications by these authors.
 
-jpe.imf <- left_join(full.file %>% filter(container.title=="Journal of Political Economy"),target.authors,c("family"="last","given"="first")) %>%
+jpe.imf <- left_join(doi.file %>% filter(container.title=="Journal of Political Economy"),target.authors,c("family"="last","given"="first")) %>%
   filter(!is.na(institution)) %>%
   select(-institution) %>%
   rename(institution = affiliations)
