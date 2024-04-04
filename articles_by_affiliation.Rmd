@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r config_libs,include=FALSE,message=FALSE}
 source(file.path(rprojroot::find_root(rprojroot::has_file("pathconfig.R")),"pathconfig.R"),echo=TRUE)
 source(file.path(basepath,"global-libraries.R"),echo=TRUE)
-source(file.path(basepath,"libraries.R"),echo=TRUE)
+source(file.path(programs,"libraries.R"),echo=TRUE)
 source(file.path(programs,"config.R"),echo=TRUE)
 ```
 
@@ -75,7 +75,13 @@ if (file.exists(doi.file.Rds)) {
 ```{r issn}
 # Each journal has a ISSN
 if (!file.exists(issns.file)) {
-issns <- data.frame(matrix(ncol=2,nrow=10))
+  message(paste0("File ",issns.file," exists, will be used."))
+
+} else {
+
+  message(paste0("File ",issns.file,"  does not exist, will create."))
+
+issns <- data.frame(matrix(ncol=2,nrow=9))
 names(issns) <- c("journal","issn")
 tmp.date <- c("2023-10-01")
 issns[1,] <- c("American Economic Journal: Applied Economics","1945-7790")
@@ -87,14 +93,16 @@ issns[6,] <- c("The American Economic Review","0002-8282")  # print ISSN is need
 issns[7,] <- c("Journal of Economic Literature","2328-8175")
 issns[8,] <- c("Journal of Economic Perspectives","1944-7965")
 issns[9,] <- c("American Economic Review: Insights","2640-2068")
-#issns[7,] <- c("The Quarterly Journal of Economics","0033-5533") # use the print ISSN (OUP). Online ISSN: 1531-4650
-#issns[8,] <- c("The Review of Economic Studies","0034-6527") # use the print ISSN (OUP). Online ISSN: 1467-937X
-#issns[9,] <- c("Journal of Political Economy","0022-3808") # online: E-ISSN: 1537-534X
-#issns[10,] <- c("The Economic Journal Oxford","0013-0133") # Online ISSN 1468-0297 
 
 
 issns$lastdate <- tmp.date
 saveRDS(issns, file= issns.file)
+
+if (file.exists(issns.file)) {
+
+  message(paste0("File ",issns.file,"  was created."))
+
+}
 }
 
 
@@ -109,11 +117,15 @@ if ( file.exists(issns.file) ) {
   issns <- readRDS(file = issns.file)
 	crossref.df <- NA
 	for ( x in 1:nrow(issns) ) {
+	  message(paste0("Querying CrossRef for ",issns[x,"journal"]))
+	  tic(x)
 		new <- cr_journals(issn=issns[x,"issn"], works=TRUE,
 				   filter=c(from_pub_date=issns[x,"lastdate"]),
 				   select=c("DOI","title","published-print","volume","issue","container-title","author"),
 				   .progress="text",
 				   cursor = "*")
+		message(paste0("Query successful"))
+		toc(log = TRUE)
 		if ( x == 1 ) {
       		#crossref.df <- as.data.frame(new$data)
 		      crossref.df <- new %>% purrr::pluck("data")
@@ -126,6 +138,12 @@ if ( file.exists(issns.file) ) {
       		rm(tmp.df)
     	}
 	}
+	#log.txt <- tic.log(format = FALSE)
+	log.lst <- tic.log(format = FALSE)
+
+	tic.clearlog()
+	timings <- unlist(lapply(log.lst, function(x) x$toc - x$tic))
+  write.csv(timings, file="timings.csv")
 	# extract the author information into columns
 	crossref.df %>% unnest(author) -> raw.df
 	
