@@ -118,7 +118,7 @@ if ( file.exists(issns.file) ) {
 	crossref.df <- NA
 	for ( x in 1:nrow(issns) ) {
 	  message(paste0("Querying CrossRef for ",issns[x,"journal"]))
-	  tic(x)
+	  tic(issns[x,"journal"])
 		new <- cr_journals(issn=issns[x,"issn"], works=TRUE,
 				   filter=c(from_pub_date=issns[x,"lastdate"]),
 				   select=c("DOI","title","published-print","volume","issue","container-title","author"),
@@ -142,8 +142,11 @@ if ( file.exists(issns.file) ) {
 	log.lst <- tic.log(format = FALSE)
 
 	tic.clearlog()
-	timings <- unlist(lapply(log.lst, function(x) x$toc - x$tic))
-  write.csv(timings, file="timings.csv")
+	timings <- log.lst %>% 
+	  map_df(~as.data.frame(.x)) %>% 
+	  mutate(elapsed=toc-tic) %>%
+	  select(msg, elapsed)
+  write.csv(timings, file=file.path(Outputs,"timings.csv"))
 	# extract the author information into columns
 	crossref.df %>% unnest(author) -> raw.df
 	
