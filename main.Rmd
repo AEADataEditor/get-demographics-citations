@@ -1,0 +1,22 @@
+---
+title: "Reproducibility and University Affiliation"
+author: "Sofia Encarnacion"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Q: Does university affiliation matter (i.e. influence number of publications)?
+Q: Does where you get your PhD matter?
+
+1. Get DOI (from crossref or from openAlex)
+
+2. Get the authors' name
+
+2a. Reformat?
+
+3. Get the authors'info - affiliation at the time of publication
+
