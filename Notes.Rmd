@@ -3,24 +3,26 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
+Install packages necessary
 ```{r}
 
 install.packages(c("rcrossref", "purrr","tidyr", "dplyr"))
 
 ```
+call libraries
+
 ```{r}
 library(rcrossref)
 library(tidyr)
 library(dplyr)
 
 ```
+
+Used cr_journals to get example journal data (AEJ: App) and put into table titled articles
 ```{r}
 cr_journals(
-  issn = "1945-7790",
+  issn = c('1945-7790','2640-2068'),
   cursor = "*" ,
   works = TRUE
 ) |> purrr::pluck("data") -> articles
@@ -28,12 +30,17 @@ cr_journals(
 
 ```
 Will now untangle articles to get indiv authors as item of interest
-
+Keeping issn because I will want to add more journals
 ```{r}
 articles |> 
-  select(doi, author) |>
+  select(doi, author, issn) |>
   unnest(author) -> authors
 
+```
+
+Break down affiliations, some authors have multiple
+
+```{r}
 
 ```
 
